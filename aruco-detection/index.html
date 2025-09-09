@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ArUco Detection</title>
+</head>
+<body>
+    <script src="https://app.protobject.com/framework/p.js"></script>
+    <script src="config.js"></script>
+
+    <script>
+        // Start ArUco marker detection, checking for markers every 200ms
+        Protobject.Aruco.start(200, 0);
+
+        // Display the camera preview, filling the entire screen
+        Protobject.Aruco.showPreview({
+            top: 0,
+            left: 0,
+            width: window.innerWidth,
+            height: window.innerHeight
+        });
+
+        // This function is called whenever marker data is updated
+        Protobject.Aruco.onData((data) => {
+            // Check if data and data.markers exist and if there's at least one marker
+            if (data && data.markers && data.markers.length > 0) {
+                // Log the position of the first detected marker
+                const marker = data.markers[0];
+                console.log(`Marker found! Position: x=${marker.pose.translation[0]}, y=${marker.pose.translation[1]}, z=${marker.pose.translation[2]}`);
+            }
+        });
+    </script>
+</body>
+</html>
