@@ -1,35 +1,70 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ArUco Detection</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>ArUco Detection</title>
+  <style>
+    html, body { margin:0; height:100%; background:#000; }
+    /* Overlay de estado: no bloquear clicks ni el render */
+    #status {
+      position: fixed;
+      top: 10px; left: 10px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-family: system-ui, sans-serif;
+      font-size: 14px;
+      color: #fff;
+      background: rgba(0,0,0,0.6);
+      z-index: 9999;
+      pointer-events: none; /* <- importante */
+    }
+    #status.detected { background: rgba(0,150,0,0.85); }
+    #status.not-detected { background: rgba(180,0,0,0.85); }
+  </style>
 </head>
 <body>
-    <script src="https://app.protobject.com/framework/p.js"></script>
-    <script src="config.js"></script>
+  <div id="status" class="not-detected">Sin marcador</div>
 
-    <script>
-        // Start ArUco marker detection, checking for markers every 200ms
-        Protobject.Aruco.start(200, 0);
+  <script src="https://app.protobject.com/framework/p.js"></script>
+  <script src="config.js"></script>
+  <script>
+    const statusEl = document.getElementById('status');
 
-        // Display the camera preview, filling the entire screen
-        Protobject.Aruco.showPreview({
-            top: 0,
-            left: 0,
-            width: window.innerWidth,
-            height: window.innerHeight
-        });
+    // 1) Inicia detección como en tu versión original
+    Protobject.Aruco.start(200, 0);
 
-        // This function is called whenever marker data is updated
-        Protobject.Aruco.onData((data) => {
-            // Check if data and data.markers exist and if there's at least one marker
-            if (data && data.markers && data.markers.length > 0) {
-                // Log the position of the first detected marker
-                const marker = data.markers[0];
-                console.log(`Marker found! Position: x=${marker.pose.translation[0]}, y=${marker.pose.translation[1]}, z=${marker.pose.translation[2]}`);
-            }
-        });
-    </script>
+    // 2) Monta el preview a pantalla completa
+    function mountPreview() {
+      Protobject.Aruco.showPreview({
+        top: 0,
+        left: 0,
+        width: window.innerWidth,
+        height: window.innerHeight
+      });
+    }
+    // Llamar una vez y también al redimensionar (evita preview 0x0/blanco)
+    mountPreview();
+    window.addEventListener('resize', mountPreview, { passive: true });
+
+    // 3) Overlay de estado según haya marcadores o no
+    Protobject.Aruco.onData((data) => {
+      const markers = data && data.markers || [];
+      if (markers.length > 0) {
+        const m = markers[0];
+        const t = (m.pose && (m.pose.translation || m.pose.t)) || [0,0,0];
+        console.log(`🟢 Marker found! x=${t[0]}, y=${t[1]}, z=${t[2]}`);
+        statusEl.textContent = `Marcador detectado (ID: ${m.id ?? "?"})`;
+        statusEl.className = 'detected';
+      } else {
+        statusEl.textContent = 'Sin marcador';
+        statusEl.className = 'not-detected';
+      }
+    });
+
+    // 4) Si tu build necesita un pequeño “tick” para pintar, fuerza un remount
+    //    después del primer frame (arregla pantallas blancas en algunos casos)
+    requestAnimationFrame(() => setTimeout(mountPreview, 0));
+  </script>
 </body>
 </html>

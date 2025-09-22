@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Debug Cámara + ArUco</title>
+<style>
+  :root { color-scheme: dark; }
+  html,body { height:100%; margin:0; background:#0b0b0b; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+  header { padding: .75rem 1rem; display:flex; gap:.75rem; align-items:center; flex-wrap:wrap; border-bottom:1px solid #222; }
+  label { font-size:.9rem; opacity:.9; }
+  select, button {
+    background:#151515; color:#eee; border:1px solid #333; border-radius:.5rem; padding:.5rem .7rem;
+  }
+  main { display:grid; grid-template-columns: 1fr 1fr; gap:.75rem; padding:.75rem; height: calc(100% - 58px); }
+  section { position:relative; background:#111; border:1px solid #222; border-radius:.75rem; overflow:hidden; }
+  h2 { position:absolute; inset:auto auto .5rem .5rem; margin:0; font-size:.8rem; color:#0ef; background:#0009; padding:.25rem .5rem; border-radius:.4rem; }
+  video, canvas { width:100%; height:100%; object-fit:cover; display:block; }
+  #protoHost { position:absolute; inset:0; }
+  /* Asegura que lo de Protobject NO quede tapado ni a tamaño 0 */
+  #protoHost canvas, #protoHost video { position:relative !important; width:100% !important; height:100% !important; z-index:0 !important; }
+  #log {
+    position:absolute; right:.5rem; top:.5rem; max-width:54ch; max-height:40%; overflow:auto;
+    background:#0009; color:#0ef; padding:.5rem .75rem; border-radius:.5rem; font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    white-space:pre-wrap;
+  }
+</style>
+<body>
+  <header>
+    <label> Cámara:
+      <select id="deviceSelect"></select>
+    </label>
+    <button id="startBtn">Iniciar</button>
+    <button id="stopBtn" disabled>Detener</button>
+    <span id="status" style="margin-left:auto; font-size:.9rem; opacity:.8;">Listo</span>
+  </header>
+
+  <main>
+    <section>
+      <h2>Preview crudo (getUserMedia)</h2>
+      <video id="rawVideo" autoplay playsinline muted></video>
+      <div id="rawInfo" class="badge"></div>
+    </section>
+    <section>
+      <h2>Preview Protobject</h2>
+      <div id="protoHost"></div>
+      <div id="log">Logs…</div>
+    </section>
+  </main>
+
+  <!-- Framework -->
+  <script src="https://app.protobject.com/framework/p.js"></script>
+  <script>
+    const $ = (s)=>document.querySelector(s);
+    const devSel = $('#deviceSelect');
+    const rawVideo = $('#rawVideo');
+    const startBtn = $('#startBtn');
+    const stopBtn  = $('#stopBtn');
+    const statusEl = $('#status');
+    const protoHost = $('#protoHost');
+    const logEl = $('#log');
+
+    let currentStream = null;
+    let running = false;
+
+    const log = (...a)=>{
+      const msg = a.map(x=> {
+        try { return typeof x === 'string' ? x : JSON.stringify(x); } catch { return String(x); }
+      }).join(' ');
+      console.debug('[DBG]', ...a);
+      logEl.textContent = (msg + '\n' + logEl.textContent).slice(0, 6000);
+    };
+
+    async function listCams() {
+      // Pedimos permiso primero para que aparezcan labels
+      try {
+        const tmp = await navigator.mediaDevices.getUserMedia({ video:true, audio:false });
+        tmp.getTracks().forEach(t=>t.stop());
+      } catch(e) { /* igual listamos */ }
+
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const cams = devices.filter(d=>d.kind==='videoinput');
+      devSel.innerHTML = '';
+      cams.forEach((c,i)=>{
+        const opt = document.createElement('option');
+        opt.value = c.deviceId;
+        opt.textContent = `${i}: ${c.label || '(Cámara sin nombre)'}`;
+        opt.dataset.index = i; // índice “lógico” que suele usar la librería
+        devSel.appendChild(opt);
+      });
+      if (!cams.length) {
+        const opt = document.createElement('option');
+        opt.textContent = 'No hay cámaras detectadas';
+        devSel.appendChild(opt);
+      }
+    }
+
+    async function startAll() {
+      if (running) return;
+      statusEl.textContent = 'Iniciando…';
+      // 1) RAW getUserMedia con deviceId seleccionado
+      const deviceId = devSel.value || undefined;
+      try {
+        currentStream = await navigator.mediaDevices.getUserMedia({
+          video: deviceId ? { deviceId: { exact: deviceId } } : { facingMode: 'user' },
+          audio: false
+        });
+        rawVideo.srcObject = currentStream;
+        const track = currentStream.getVideoTracks()[0];
+        log('RAW:', { label: track.label, readyState: track.readyState });
+      } catch (e) {
+        log('❌ getUserMedia fallo:', e.message || e);
+        statusEl.textContent = 'Error cámara';
+        return;
+      }
+
+      // 2) Protobject preview y start
+      try {
+        if (Protobject && typeof Protobject.ready === 'function') {
+          await Protobject.ready();
+        }
+        // Redimensiona preview al tamaño del panel derecho
+        const r = protoHost.getBoundingClientRect();
+        Protobject.Aruco.showPreview({
+          top: 0, left: 0, width: r.width, height: r.height
+          // Si tu versión acepta contenedor, prueba: element: protoHost
+        });
+
+        // Mapea opción seleccionada al índice que suele usar la lib (0,1,2…)
+        const selIndex = parseInt(devSel.selectedOptions?.[0]?.dataset?.index ?? '0', 10);
+        Protobject.Aruco.start(200, isNaN(selIndex) ? 0 : selIndex);
+
+        // Logs de detección
+        Protobject.Aruco.onData((data)=>{
+          const markers = (data && (data.markers || data)) || [];
+          if (Array.isArray(markers) && markers.length) {
+            const m = markers[0];
+            const t = (m.pose && (m.pose.translation || m.pose.t)) || [0,0,0];
+            log(`🟢 Marker #${m.id ?? '?'}  x=${t[0]?.toFixed?.(3)} y=${t[1]?.toFixed?.(3)} z=${t[2]?.toFixed?.(3)}`);
+          }
+        });
+        if (Protobject.Aruco.onError) {
+          Protobject.Aruco.onError(err=> log('❌ Protobject error:', err?.message || err));
+        }
+
+        // Resize handler
+        const onResize = ()=>{
+          const r = protoHost.getBoundingClientRect();
+          Protobject.Aruco.showPreview({ top:0, left:0, width:r.width, height:r.height });
+        };
+        window.addEventListener('resize', onResize, { passive:true });
+
+        running = true;
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+        statusEl.textContent = 'En ejecución';
+      } catch (e) {
+        log('❌ Protobject fallo:', e.message || e);
+        statusEl.textContent = 'Error Protobject';
+      }
+    }
+
+    function stopAll() {
+      try {
+        if (Protobject?.Aruco?.stop) Protobject.Aruco.stop();
+      } catch(e){ log('Protobject.stop err:', e); }
+      try {
+        currentStream?.getTracks?.().forEach(t=>t.stop());
+      } catch(e){ log('stop tracks err:', e); }
+      currentStream = null;
+      running = false;
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+      statusEl.textContent = 'Detenido';
+    }
+
+    startBtn.addEventListener('click', startAll);
+    stopBtn.addEventListener('click', stopAll);
+    window.addEventListener('beforeunload', stopAll);
+    listCams();
+  </script>
+</body>
+</html>
