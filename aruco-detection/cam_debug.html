@@ -118,16 +118,26 @@
         if (Protobject && typeof Protobject.ready === 'function') {
           await Protobject.ready();
         }
-        // Redimensiona preview al tamaño del panel derecho
-        const r = protoHost.getBoundingClientRect();
-        Protobject.Aruco.showPreview({
-          top: 0, left: 0, width: r.width, height: r.height
-          // Si tu versión acepta contenedor, prueba: element: protoHost
-        });
 
         // Mapea opción seleccionada al índice que suele usar la lib (0,1,2…)
         const selIndex = parseInt(devSel.selectedOptions?.[0]?.dataset?.index ?? '0', 10);
+        log(`Starting Protobject.Aruco with camera index: ${selIndex}`);
         Protobject.Aruco.start(200, isNaN(selIndex) ? 0 : selIndex);
+
+        // --- FIX: DELAY THE PREVIEW ---
+        // Wait a moment for the camera to initialize internally before showing the preview
+        setTimeout(() => {
+          try {
+            log('Attempting to show preview...');
+            Protobject.Aruco.showPreview({
+              element: protoHost // Pass the container element
+            });
+            log('✅ Preview successfully shown.');
+          } catch (e) {
+            log('❌ Error inside setTimeout while showing preview:', e.message || e);
+            statusEl.textContent = 'Error en Preview';
+          }
+        }, 100); // 100ms delay. Increase if the error persists.
 
         // Logs de detección
         Protobject.Aruco.onData((data)=>{
@@ -142,10 +152,9 @@
           Protobject.Aruco.onError(err=> log('❌ Protobject error:', err?.message || err));
         }
 
-        // Resize handler
+        // Handle window resizing
         const onResize = ()=>{
-          const r = protoHost.getBoundingClientRect();
-          Protobject.Aruco.showPreview({ top:0, left:0, width:r.width, height:r.height });
+          Protobject.Aruco.showPreview({ element: protoHost });
         };
         window.addEventListener('resize', onResize, { passive:true });
 
@@ -153,8 +162,9 @@
         startBtn.disabled = true;
         stopBtn.disabled = false;
         statusEl.textContent = 'En ejecución';
+
       } catch (e) {
-        log('❌ Protobject fallo:', e.message || e);
+        log('❌ Protobject startup failed:', e.message || e);
         statusEl.textContent = 'Error Protobject';
       }
     }
