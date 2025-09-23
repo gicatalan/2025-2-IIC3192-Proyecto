@@ -10,32 +10,37 @@
     <script src="config.js"></script>
     <h1 style="font-family:sans-serif; text-align:center; margin-top:20px">This is the button</h1>
     <script>
-      // A button is created with the following configurations:
       const button = new Protobject.Button({
-        text: "Click Me", // Text displayed on the button
+        text: "Click Me",
         style: {
-          backgroundColor: "blue", // Button background color
-          color: "white", // Text color
-          padding: "10px 20px", // Internal spacing of the button (top-bottom, left-right)
-          width: "calc(100% - 160px)", // Lamp width
-          height: "calc(100% - 160px)", // Lamp height
-          top: "80px", // Position from the top
-          left: "80px", // Position from the left
+          backgroundColor: "blue",
+          color: "white",
+          padding: "10px 20px",
+          width: "calc(100% - 160px)",
+          height: "calc(100% - 160px)",
+          top: "80px",
+          left: "80px",
           borderRadius: "20px",
         },
       });
 
-      // An action is defined for when the button is pressed.
-      // It displays a message in the console and sends the value 'true' to the "index.html" file.
       button.onPressed(() => {
-        Protobject.Core.send(true).to("index.html"); // Send message to the file
+        console.log("🔘 pressed - sending true");
+        Protobject.Core.send(true).to("index.html");
       });
 
-      // An action is defined for when the button is released.
-      // It displays a message in the console and sends the value 'false' to the "index.html" file.
       button.onRelease(() => {
-        Protobject.Core.send(false).to("index.html"); // Send message to the file
+        console.log("🔘 released - sending false");
+        Protobject.Core.send(false).to("index.html");
       });
+
+      // Para debug
+      Protobject.Core.onConnected(() => {
+        console.log("✅ Button connected to namespace");
+      });
+
+      // Debug: Verificar métodos disponibles
+      console.log("Métodos Core disponibles en Button:", Object.keys(Protobject.Core));
     </script>
   </body>
 </html>

@@ -49,12 +49,22 @@
 
     // 3) Overlay de estado según haya marcadores o no
     Protobject.Aruco.onData((data) => {
-      const markers = data && data.markers || [];
-      if (markers.length > 0) {
-        const m = markers[0];
-        const t = (m.pose && (m.pose.translation || m.pose.t)) || [0,0,0];
-        console.log(`🟢 Marker found! x=${t[0]}, y=${t[1]}, z=${t[2]}`);
-        statusEl.textContent = `Marcador detectado (ID: ${m.id ?? "?"})`;
+      console.log(Object.keys(data).length); // Número de marcadores detectados
+      console.log(data);
+      
+      // Obtener las claves (IDs de marcadores)
+      const markerIds = Object.keys(data);
+      
+      if (markerIds.length > 0) {
+        // Tomar el primer marcador detectado
+        const firstMarkerId = markerIds[0];
+        const marker = data[firstMarkerId];
+        
+        // Extraer posición
+        const pos = marker.position;
+        console.log(`🟢 Marker found! ID: ${firstMarkerId}, x=${pos.x}, y=${pos.y}`);
+        
+        statusEl.textContent = `Marcador detectado (ID: ${firstMarkerId}) - Posición: x=${pos.x.toFixed(2)}, y=${pos.y.toFixed(2)}`;
         statusEl.className = 'detected';
       } else {
         statusEl.textContent = 'Sin marcador';

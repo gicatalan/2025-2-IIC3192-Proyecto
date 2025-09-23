@@ -6,40 +6,59 @@
     <title>Lamp</title>
   </head>
   <body>
-
     <script src="https://app.protobject.com/framework/p.js"></script>
     <script src="config.js"></script>
     
     <h1 style="font-family:sans-serif; text-align:center; margin-top:20px">This is the lamp</h1>
     <script>
-      // This file, index.html, defines a lamp.
-      // An instance of the lamp is created with the specified dimensions and position.
       const lamp = new Protobject.Lamp({
-        width: "calc(100% - 160px)", // Lamp width
-        height: "calc(100% - 160px)", // Lamp height
-        top: "80px", // Position from the top
-        left: "80px", // Position from the left
+        width: "calc(100% - 160px)",
+        height: "calc(100% - 160px)",
+        top: "80px",
+        left: "80px",
         zIndex: 5,
         borderRadius: "20px"
       });
 
-      // Event triggered when a message is received.
-      // If the received message is 'true', the lamp turns on with red light.
-      // If the message is 'false', the lamp turns off.
+      // PRUEBA DIFERENTES MÉTODOS DE RECEPCIÓN:
+
+      // Método 1: onReceived (el que tenías originalmente)
       Protobject.Core.onReceived(function (message) {
+        console.log("📩 onReceived message:", message);
         if (message) {
-          lamp.setColor({ r: 0, g: 255, b: 0 }); // Green light (RGB: 0, 255, 0)
+          console.log("🟢 Turning lamp ON");
+          lamp.setColor({ r: 0, g: 255, b: 0 });
         } else {
-          lamp.setColor({ r: 0, g: 0, b: 0 }); // Off (RGB: 0, 0, 0)
+          console.log("🔴 Turning lamp OFF");
+          lamp.setColor({ r: 0, g: 0, b: 0 });
         }
       });
+
+      // Método 2: onMessage (por si acaso)
+      if (Protobject.Core.onMessage) {
+        Protobject.Core.onMessage(function (message) {
+          console.log("📩 onMessage received:", message);
+        });
+      }
+
+      // Método 3: Event listener
+      Protobject.Core.addEventListener('message', function (event) {
+        console.log("📩 Event message:", event.detail);
+      });
+
+      // Para debug
+      Protobject.Core.onConnected(() => {
+        console.log("✅ Lamp connected to namespace");
+      });
+
+      // Debug: Verificar métodos disponibles
+      console.log("Métodos Core disponibles en Lamp:", Object.keys(Protobject.Core));
     </script>
   </body>
   <style>
     #ProtobjectPlusButton {
       width: 80px !important;
     }
-
     #ProtobjectPlusButton:after {
       content: " Connect";
     }

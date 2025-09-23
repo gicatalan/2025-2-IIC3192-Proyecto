@@ -1,6 +1,5 @@
 Protobject.setProduction(true)
-Protobject.initialize(
-[
+Protobject.initialize([
   { 
     name: "Button",
     page: "button.html",
