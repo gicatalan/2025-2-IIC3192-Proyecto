@@ -19,9 +19,7 @@
 <body>
     <h1>Avisar al Conductor</h1>
     <div id="status">Listo para avisar</div>
-    
     <input type="text" id="paradero-input" placeholder="Ingresa el código del paradero">
-    
     <button id="avisarBtn">Avisar al Conductor</button>
 
     <script src="https://app.protobject.com/framework/p.js"></script>
@@ -29,49 +27,36 @@
     <script>
         const statusDiv = document.getElementById('status');
         const paraderoInput = document.getElementById('paradero-input');
-        const hapticFeedback = new Protobject.Haptic();
         const avisarBtn = document.getElementById('avisarBtn');
-
-        function setStatus(mensaje, clase) {
-            statusDiv.innerText = mensaje;
-            statusDiv.className = clase;
-        }
-
-        avisarBtn.onclick = () => {
-            const paradero = paraderoInput.value;
-            if (!paradero) {
-                alert("Por favor, ingresa el código del paradero.");
-                return;
-            }
-            
-            // --- INICIO DE LA CORRECCIÓN ---
-            // Simplemente enviamos los datos. El framework se encarga de la identidad.
-            const mensaje = {
-                tipo: 'SOLICITUD_PARADA',
-                paradero: paradero
-            };
-            // --- FIN DE LA CORRECCIÓN ---
-
-            Protobject.Core.send(mensaje).to("conductor.html");
-            
-            setStatus("Aviso enviado. Esperando confirmación del conductor...", 'status-enviado');
-            avisarBtn.innerText = "ESPERANDO...";
-            avisarBtn.disabled = true;
-        };
+        Protobject.Haptic.start();
 
         Protobject.Core.onReceived(function (mensaje) {
             if (mensaje.tipo === 'AVISO_RECIBIDO') {
                 setStatus("¡Recibido! El conductor ha sido notificado.", 'status-recibido');
-                hapticFeedback.vibrate({ pattern: [200] });
+                Protobject.Haptic.vibrate([200]);
             } else if (mensaje.tipo === 'BUS_LLENO') {
                 setStatus("El conductor informa: Bus Lleno.", 'status-error');
-                resetButton();
+                setTimeout(resetButton, 5000);
             } else if (mensaje.tipo === 'OPERACION_EXITOSA') {
                 setStatus("¡Éxito! Puedes subir al bus.", 'status-exito');
                 setTimeout(resetButton, 5000);
             }
         });
+
+        avisarBtn.onclick = () => {
+            const paradero = paraderoInput.value;
+            if (!paradero) { alert("Por favor, ingresa el código del paradero."); return; }
+            const mensaje = { tipo: 'SOLICITUD_PARADA', paradero: paradero };
+            Protobject.Core.send(mensaje).to("conductor.html");
+            setStatus("Aviso enviado. Esperando confirmación del conductor...", 'status-enviado');
+            avisarBtn.innerText = "ESPERANDO...";
+            avisarBtn.disabled = true;
+        };
         
+        function setStatus(mensaje, clase) {
+            statusDiv.innerText = mensaje;
+            statusDiv.className = clase;
+        }
         function resetButton() {
           avisarBtn.innerText = "Avisar al Conductor";
           avisarBtn.disabled = false;

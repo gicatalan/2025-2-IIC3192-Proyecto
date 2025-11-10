@@ -1,4 +1,3 @@
-<!-- conductor.html (CORREGIDO) -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -14,10 +13,8 @@
 </head>
 <body>
     <h1>Consola del Conductor</h1>
-    <div id="alerta-container">
-        <h2 id="paradero-info">Sin solicitudes</h2>
-    </div>
-
+    <div id="alerta-container"><h2 id="paradero-info">Sin solicitudes</h2></div>
+    
     <div class="botones-accion">
         <button id="btn-bus-lleno" disabled>Bus Lleno</button>
         <button id="btn-cerrar-aviso" disabled>Cerrar Aviso</button>
@@ -30,9 +27,7 @@
         const paraderoInfo = document.getElementById('paradero-info');
         const btnBusLleno = document.getElementById('btn-bus-lleno');
         const btnCerrarAviso = document.getElementById('btn-cerrar-aviso');
-
         let avisoActivo = false;
-        let pasajeroActual = null;
 
         function limpiarEstado() {
             alertaVisual.setColor({ r: 0, g: 0, b: 0 });
@@ -40,41 +35,31 @@
             btnBusLleno.disabled = true;
             btnCerrarAviso.disabled = true;
             avisoActivo = false;
-            pasajeroActual = null;
         }
 
-        // --- INICIO DE LA CORRECCIÓN ---
-        // La función onReceived recibe un segundo parámetro: el ID del remitente.
         Protobject.Core.onReceived(function (mensaje, senderId) {
             if (!avisoActivo && mensaje.tipo === 'SOLICITUD_PARADA') {
                 avisoActivo = true;
-                // Guardamos el ID del remitente que nos da el framework.
-                pasajeroActual = senderId; 
-                
                 paraderoInfo.innerText = `Pasajero esperando en paradero: ${mensaje.paradero}`;
                 alertaVisual.setColor({ r: 0, g: 0, b: 255 });
-
                 btnBusLleno.disabled = false;
                 btnCerrarAviso.disabled = false;
-
-                // Respondemos directamente al remitente (pasajeroActual).
-                Protobject.Core.send({ tipo: 'AVISO_RECIBIDO' }).to(pasajeroActual);
+                Protobject.Core.send({ tipo: 'AVISO_RECIBIDO' }).to("pasajero.html");
             }
         });
-        // --- FIN DE LA CORRECCIÓN ---
 
-        btnBusLleno.onclick = () => {
-            if (avisoActivo) {
-                Protobject.Core.send({ tipo: 'BUS_LLENO' }).to(pasajeroActual);
-                limpiarEstado();
-            }
+        btnBusLleno.onclick = () => { 
+            if (avisoActivo) { 
+                Protobject.Core.send({ tipo: 'BUS_LLENO' }).to("pasajero.html"); 
+                limpiarEstado(); 
+            } 
         };
 
-        btnCerrarAviso.onclick = () => {
-            if (avisoActivo) {
-                Protobject.Core.send({ tipo: 'OPERACION_EXITOSA' }).to(pasajeroActual);
-                limpiarEstado();
-            }
+        btnCerrarAviso.onclick = () => { 
+            if (avisoActivo) { 
+                Protobject.Core.send({ tipo: 'OPERACION_EXITOSA' }).to("pasajero.html"); 
+                limpiarEstado(); 
+            } 
         };
 
         const style = document.createElement('style');
