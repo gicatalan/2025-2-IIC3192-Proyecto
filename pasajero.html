@@ -33,12 +33,14 @@
         Protobject.Core.onReceived(function (mensaje) {
             if (mensaje.tipo === 'AVISO_RECIBIDO') {
                 setStatus("¡Recibido! El conductor ha sido notificado.", 'status-recibido');
-                Protobject.Haptic.vibrate([200]);
+                Protobject.Haptic.vibrate([200, 100, 200]);
             } else if (mensaje.tipo === 'BUS_LLENO') {
                 setStatus("El conductor informa: Bus Lleno.", 'status-error');
+                Protobject.Haptic.vibrate([200, 100, 200]);
                 setTimeout(resetButton, 5000);
             } else if (mensaje.tipo === 'OPERACION_EXITOSA') {
                 setStatus("¡Éxito! Puedes subir al bus.", 'status-exito');
+                Protobject.Haptic.vibrate([200, 100, 200]);
                 setTimeout(resetButton, 5000);
             }
         });
