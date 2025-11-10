@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <style>
         body { font-family: sans-serif; text-align: center; padding: 20px; background-color: #333; color: white; }
-        #alerta-container { height: 200px; border: 2px dashed #555; border-radius: 15px; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; }
+        #alerta-container { height: 200px; border: 2px dashed #555; border-radius: 15px; margin-bottom: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: background-color 0.3s; }
+        #alerta-container h2 { font-size: 2em; margin: 0; }
+        #alerta-container h3 { font-size: 1.2em; margin: 5px 0; color: #ccc; }
         .botones-accion button { width: 45%; padding: 20px; font-size: 16px; border-radius: 10px; border: none; cursor: pointer; }
         #btn-bus-lleno { background-color: #ffc107; }
         #btn-cerrar-aviso { background-color: #28a745; color: white; }
@@ -13,8 +15,10 @@
 </head>
 <body>
     <h1>Consola del Conductor</h1>
-    <div id="alerta-container"><h2 id="paradero-info">Sin solicitudes</h2></div>
-    
+    <div id="alerta-container">
+        <h2 id="linea-info">---</h2>
+        <h3 id="paradero-info">Sin solicitudes</h3>
+    </div>
     <div class="botones-accion">
         <button id="btn-bus-lleno" disabled>Bus Lleno</button>
         <button id="btn-cerrar-aviso" disabled>Cerrar Aviso</button>
@@ -24,6 +28,7 @@
     <script src="config.js"></script>
     <script>
         const alertaVisual = new Protobject.Lamp({ zIndex: -1 });
+        const lineaInfo = document.getElementById('linea-info');
         const paraderoInfo = document.getElementById('paradero-info');
         const btnBusLleno = document.getElementById('btn-bus-lleno');
         const btnCerrarAviso = document.getElementById('btn-cerrar-aviso');
@@ -31,36 +36,37 @@
 
         function limpiarEstado() {
             alertaVisual.setColor({ r: 0, g: 0, b: 0 });
+            lineaInfo.innerText = "---";
             paraderoInfo.innerText = "Sin solicitudes";
             btnBusLleno.disabled = true;
             btnCerrarAviso.disabled = true;
             avisoActivo = false;
         }
 
-        Protobject.Core.onReceived(function (mensaje, senderId) {
+        Protobject.Core.onReceived(function (mensaje) {
             if (!avisoActivo && mensaje.tipo === 'SOLICITUD_PARADA') {
                 avisoActivo = true;
-                paraderoInfo.innerText = `Pasajero esperando en paradero: ${mensaje.paradero}`;
+                lineaInfo.innerText = `Línea ${mensaje.linea}`;
+                paraderoInfo.innerText = `Paradero ${mensaje.paradero}`;
                 alertaVisual.setColor({ r: 0, g: 0, b: 255 });
                 btnBusLleno.disabled = false;
                 btnCerrarAviso.disabled = false;
                 Protobject.Core.send({ tipo: 'AVISO_RECIBIDO' }).to("pasajero.html");
+            
+            } else if (avisoActivo && mensaje.tipo === 'CANCELACION_AVISO') {
+                alertaVisual.setColor({ r: 255, g: 193, b: 7 });
+                lineaInfo.innerText = "AVISO CANCELADO";
+                paraderoInfo.innerText = "El pasajero ya no está esperando";
+                
+                btnBusLleno.disabled = true;
+                btnCerrarAviso.disabled = true;
+                
+                setTimeout(limpiarEstado, 2500);
             }
         });
 
-        btnBusLleno.onclick = () => { 
-            if (avisoActivo) { 
-                Protobject.Core.send({ tipo: 'BUS_LLENO' }).to("pasajero.html"); 
-                limpiarEstado(); 
-            } 
-        };
-
-        btnCerrarAviso.onclick = () => { 
-            if (avisoActivo) { 
-                Protobject.Core.send({ tipo: 'OPERACION_EXITOSA' }).to("pasajero.html"); 
-                limpiarEstado(); 
-            } 
-        };
+        btnBusLleno.onclick = () => { if (avisoActivo) { Protobject.Core.send({ tipo: 'BUS_LLENO' }).to("pasajero.html"); limpiarEstado(); } };
+        btnCerrarAviso.onclick = () => { if (avisoActivo) { Protobject.Core.send({ tipo: 'OPERACION_EXITOSA' }).to("pasajero.html"); limpiarEstado(); } };
 
         const style = document.createElement('style');
         style.innerHTML = `#ProtobjectPlusButton:after { content: " Conectar Pasajeros"; }`;

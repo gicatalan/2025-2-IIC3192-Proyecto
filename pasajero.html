@@ -4,65 +4,96 @@
     <title>Aviso Pasajero</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 20px; display: flex; flex-direction: column; align-items: center; box-sizing: border-box; }
-        h1 { margin-bottom: 10px; }
-        #status { width: 90%; padding: 20px; margin: 15px 0; border-radius: 10px; background-color: #f0f0f0; font-size: 1.2em; font-weight: bold; }
-        #paradero-input { width: 90%; padding: 15px; font-size: 18px; margin-bottom: 25px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; }
-        #avisarBtn { width: 90%; height: 70px; font-size: 18px; font-weight: bold; color: white; background-color: dodgerblue; border: none; border-radius: 10px; cursor: pointer; transition: background-color 0.3s; }
-        #avisarBtn:disabled { background-color: grey; cursor: not-allowed; }
-        .status-enviado { background-color: #e2e3e5; color: #383d41; }
+        body { font-family: sans-serif; margin: 0; display: flex; flex-direction: column; align-items: center; background-color: #f4f4f4; }
+        .header { background-color: #d4002a; color: white; width: 100%; padding: 15px 0; text-align: center; }
+        .content { width: 90%; max-width: 400px; text-align: center; }
+        h1 { font-size: 1.5em; }
+        h2 { font-size: 1.1em; color: #555; }
+        #bus-list { list-style: none; padding: 0; width: 100%; }
+        #bus-list li button {
+            width: 100%; padding: 20px; margin-bottom: 10px; font-size: 1.2em; font-weight: bold;
+            border: 1px solid #ddd; border-radius: 8px; background-color: white; cursor: pointer;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        #bus-list li button .eta { color: #d4002a; }
+        #cancelarBtn {
+            width: 100%; padding: 20px; margin-top: 20px; font-size: 1.2em; font-weight: bold;
+            border: none; border-radius: 8px; background-color: #6c757d; color: white; cursor: pointer;
+            display: none;
+        }
+        #status { width: 100%; padding: 20px; margin: 20px 0; border-radius: 10px; background-color: #e9ecef; font-size: 1.2em; font-weight: bold; box-sizing: border-box; }
         .status-recibido { background-color: #d4edda; color: #155724; }
         .status-error { background-color: #f8d7da; color: #721c24; }
         .status-exito { background-color: #cce5ff; color: #004085; }
     </style>
 </head>
 <body>
-    <h1>Avisar al Conductor</h1>
-    <div id="status">Listo para avisar</div>
-    <input type="text" id="paradero-input" placeholder="Ingresa el código del paradero">
-    <button id="avisarBtn">Avisar al Conductor</button>
+    <div class="header"><h1>Red Movilidad</h1></div>
+    <div class="content">
+        <h2>Paradero PH215</h2>
+        <div id="status">Selecciona tu recorrido</div>
+        <ul id="bus-list">
+            <li><button data-linea="212"><span>Recorrido <strong>212</strong></span><span class="eta">3 min</span></button></li>
+            <li><button data-linea="506"><span>Recorrido <strong>506</strong></span><span class="eta">5 min</span></button></li>
+        </ul>
+        <button id="cancelarBtn">Cancelar Aviso</button>
+    </div>
 
     <script src="https://app.protobject.com/framework/p.js"></script>
     <script src="config.js"></script>
     <script>
         const statusDiv = document.getElementById('status');
-        const paraderoInput = document.getElementById('paradero-input');
-        const avisarBtn = document.getElementById('avisarBtn');
+        const busList = document.getElementById('bus-list');
+        const cancelarBtn = document.getElementById('cancelarBtn');
         Protobject.Haptic.start();
+        let avisoEnviado = false;
+
+        busList.addEventListener('click', (event) => {
+            const clickedButton = event.target.closest('button');
+            if (clickedButton && !avisoEnviado) {
+                const linea = clickedButton.dataset.linea;
+                const mensaje = { tipo: 'SOLICITUD_PARADA', paradero: 'PH215', linea: linea };
+                Protobject.Core.send(mensaje).to("conductor.html");
+
+                avisoEnviado = true;
+                setStatus(`Aviso enviado para el recorrido ${linea}. Esperando...`, '');
+                busList.style.display = 'none';
+                cancelarBtn.style.display = 'block';
+            }
+        });
+
+        cancelarBtn.onclick = () => {
+            Protobject.Core.send({ tipo: 'CANCELACION_AVISO' }).to("conductor.html");
+            resetButton();
+        };
 
         Protobject.Core.onReceived(function (mensaje) {
             if (mensaje.tipo === 'AVISO_RECIBIDO') {
                 setStatus("¡Recibido! El conductor ha sido notificado.", 'status-recibido');
                 Protobject.Haptic.vibrate([200, 100, 200]);
-            } else if (mensaje.tipo === 'BUS_LLENO') {
-                setStatus("El conductor informa: Bus Lleno.", 'status-error');
-                Protobject.Haptic.vibrate([200, 100, 200]);
-                setTimeout(resetButton, 5000);
-            } else if (mensaje.tipo === 'OPERACION_EXITOSA') {
-                setStatus("¡Éxito! Puedes subir al bus.", 'status-exito');
+            
+            } else if (mensaje.tipo === 'BUS_LLENO' || mensaje.tipo === 'OPERACION_EXITOSA') {
+                cancelarBtn.style.display = 'none'; 
+                
+                if (mensaje.tipo === 'BUS_LLENO') {
+                    setStatus("El conductor informa: Bus Lleno.", 'status-error');
+                } else {
+                    setStatus("¡Éxito! Puedes subir al bus.", 'status-exito');
+                }
                 Protobject.Haptic.vibrate([200, 100, 200]);
                 setTimeout(resetButton, 5000);
             }
         });
-
-        avisarBtn.onclick = () => {
-            const paradero = paraderoInput.value;
-            if (!paradero) { alert("Por favor, ingresa el código del paradero."); return; }
-            const mensaje = { tipo: 'SOLICITUD_PARADA', paradero: paradero };
-            Protobject.Core.send(mensaje).to("conductor.html");
-            setStatus("Aviso enviado. Esperando confirmación del conductor...", 'status-enviado');
-            avisarBtn.innerText = "ESPERANDO...";
-            avisarBtn.disabled = true;
-        };
         
         function setStatus(mensaje, clase) {
             statusDiv.innerText = mensaje;
-            statusDiv.className = clase;
+            statusDiv.className = clase || '';
         }
         function resetButton() {
-          avisarBtn.innerText = "Avisar al Conductor";
-          avisarBtn.disabled = false;
-          setStatus("Listo para avisar", "");
+          avisoEnviado = false;
+          busList.style.display = 'block';
+          cancelarBtn.style.display = 'none';
+          setStatus("Selecciona tu recorrido", "");
         }
     </script>
 </body>
