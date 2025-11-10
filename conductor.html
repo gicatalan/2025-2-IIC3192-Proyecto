@@ -1,0 +1,85 @@
+<!-- conductor.html (CORREGIDO) -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Consola Conductor</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 20px; background-color: #333; color: white; }
+        #alerta-container { height: 200px; border: 2px dashed #555; border-radius: 15px; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; }
+        .botones-accion button { width: 45%; padding: 20px; font-size: 16px; border-radius: 10px; border: none; cursor: pointer; }
+        #btn-bus-lleno { background-color: #ffc107; }
+        #btn-cerrar-aviso { background-color: #28a745; color: white; }
+    </style>
+</head>
+<body>
+    <h1>Consola del Conductor</h1>
+    <div id="alerta-container">
+        <h2 id="paradero-info">Sin solicitudes</h2>
+    </div>
+
+    <div class="botones-accion">
+        <button id="btn-bus-lleno" disabled>Bus Lleno</button>
+        <button id="btn-cerrar-aviso" disabled>Cerrar Aviso</button>
+    </div>
+
+    <script src="https://app.protobject.com/framework/p.js"></script>
+    <script src="config.js"></script>
+    <script>
+        const alertaVisual = new Protobject.Lamp({ zIndex: -1 });
+        const paraderoInfo = document.getElementById('paradero-info');
+        const btnBusLleno = document.getElementById('btn-bus-lleno');
+        const btnCerrarAviso = document.getElementById('btn-cerrar-aviso');
+
+        let avisoActivo = false;
+        let pasajeroActual = null;
+
+        function limpiarEstado() {
+            alertaVisual.setColor({ r: 0, g: 0, b: 0 });
+            paraderoInfo.innerText = "Sin solicitudes";
+            btnBusLleno.disabled = true;
+            btnCerrarAviso.disabled = true;
+            avisoActivo = false;
+            pasajeroActual = null;
+        }
+
+        // --- INICIO DE LA CORRECCIÓN ---
+        // La función onReceived recibe un segundo parámetro: el ID del remitente.
+        Protobject.Core.onReceived(function (mensaje, senderId) {
+            if (!avisoActivo && mensaje.tipo === 'SOLICITUD_PARADA') {
+                avisoActivo = true;
+                // Guardamos el ID del remitente que nos da el framework.
+                pasajeroActual = senderId; 
+                
+                paraderoInfo.innerText = `Pasajero esperando en paradero: ${mensaje.paradero}`;
+                alertaVisual.setColor({ r: 0, g: 0, b: 255 });
+
+                btnBusLleno.disabled = false;
+                btnCerrarAviso.disabled = false;
+
+                // Respondemos directamente al remitente (pasajeroActual).
+                Protobject.Core.send({ tipo: 'AVISO_RECIBIDO' }).to(pasajeroActual);
+            }
+        });
+        // --- FIN DE LA CORRECCIÓN ---
+
+        btnBusLleno.onclick = () => {
+            if (avisoActivo) {
+                Protobject.Core.send({ tipo: 'BUS_LLENO' }).to(pasajeroActual);
+                limpiarEstado();
+            }
+        };
+
+        btnCerrarAviso.onclick = () => {
+            if (avisoActivo) {
+                Protobject.Core.send({ tipo: 'OPERACION_EXITOSA' }).to(pasajeroActual);
+                limpiarEstado();
+            }
+        };
+
+        const style = document.createElement('style');
+        style.innerHTML = `#ProtobjectPlusButton:after { content: " Conectar Pasajeros"; }`;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>
